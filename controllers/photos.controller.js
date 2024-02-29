@@ -57,14 +57,29 @@ exports.loadAll = async (req, res) => {
 
 /****** VOTE FOR PHOTO ********/
 
+const addVote = async (res, id) => {
+  const photoToUpdate = await Photo.findOne({ _id: id });
+  if (!photoToUpdate) res.status(404).json({ message: 'Not found' });
+  else {
+    photoToUpdate.votes++;
+    photoToUpdate.save();
+    res.send({ message: 'OK' });
+  }
+};
+
 exports.vote = async (req, res) => {
   try {
-    const photoToUpdate = await Photo.findOne({ _id: req.params.id });
-    if (!photoToUpdate) res.status(404).json({ message: 'Not found' });
-    else {
-      photoToUpdate.votes++;
-      photoToUpdate.save();
-      res.send({ message: 'OK' });
+    const voter = await Voter.findOne({ user: req.ip });
+    if (!voter) {
+      const newVoter = new Voter({ user: req.ip, votes: req.params.id });
+      await newVoter.save();
+      addVote(res, req.params.id);
+    } else if (!voter.votes.includes(req.params.id)) {
+      voter.votes.push(req.params.id);
+      await voter.save();
+      addVote(res, req.params.id);
+    } else {
+      throw new Error('Wrong vote!');
     }
   } catch (err) {
     res.status(500).json(err);
